@@ -1,5 +1,5 @@
 http_request 'notify_slack' do
-  url 'https://github.com/catatsuy/notify_slack/releases/download/v0.4.7/notify_slack-linux-amd64.tar.gz'
+  url 'https://github.com/catatsuy/notify_slack/releases/download/v0.4.11/notify_slack-linux-amd64.tar.gz'
   path '/tmp/notify_slack-linux-amd64.tar.gz'
   mode '0644'
   not_if 'test -x /usr/local/bin/notify_slack'
