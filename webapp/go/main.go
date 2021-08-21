@@ -1200,6 +1200,10 @@ func getTrend(c echo.Context) error {
 			isuKeys = append(isuKeys, fmt.Sprintf("latest_condition:%s", isu.JIAIsuUUID))
 		}
 
+		if len(isuKeys) == 0 {
+			continue
+		}
+
 		vals, err := rdb.MGet(nilCtx, isuKeys...).Result()
 		if err != nil {
 			// something wrong
@@ -1227,8 +1231,7 @@ func getTrend(c echo.Context) error {
 			switch trueCount {
 			case "0":
 				characterInfoIsuConditions = append(characterInfoIsuConditions, &trendCondition)
-			case "1":
-			case "2":
+			case "1", "2":
 				characterWarningIsuConditions = append(characterWarningIsuConditions, &trendCondition)
 			case "3":
 				characterCriticalIsuConditions = append(characterCriticalIsuConditions, &trendCondition)
