@@ -396,6 +396,12 @@ func postInitialize(c echo.Context) error {
 	}
 	rows.Close()
 
+	_, err = db.Exec("UPDATE isu SET image = NULL")
+	if err != nil {
+		c.Logger().Errorf("db error : %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "go",
 	})
