@@ -2,10 +2,13 @@
 
 set -xe
 cd go && /home/isucon/local/go/bin/go build . && cd -
-rsync -av ./go/ ~/webapp/go/
-rsync -av ./sql/ ~/webapp/sql/
-
-sudo systemctl restart isucondition.go.service
+for h in 1 2 3
+do
+   rsync -av ~/env.sh isucondition-${h}.t.isucon.dev:/home/isucon/
+   rsync -av ./go/ isucondition-${h}.t.isucon.dev:/home/isucon/webapp/go/
+   rsync -av ./sql/ isucondition-${h}.t.isucon.dev:/home/isucon/webapp/sql/
+   ssh isucondition-${h}.t.isucon.dev sudo systemctl restart isucondition.go.service
+done
 
 sudo mv /var/log/nginx/access.log /var/log/nginx/access.log.$(date +%Y%m%d-%H%M%S)
 sudo systemctl restart nginx
