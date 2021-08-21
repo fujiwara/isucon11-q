@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -32,6 +33,7 @@ const (
 	frontendContentsPath        = "../public"
 	jiaJWTSigningKeyPath        = "../ec256-public.pem"
 	defaultIconFilePath         = "../NoImage.jpg"
+	imageContentsPath           = "../images"
 	defaultJIAServiceURL        = "http://localhost:5000"
 	mysqlErrNumDuplicateEntry   = 1062
 	conditionLevelInfo          = "info"
@@ -548,13 +550,7 @@ func postIsu(c echo.Context) error {
 
 	var image []byte
 
-	if useDefaultImage {
-		image, err = ioutil.ReadFile(defaultIconFilePath)
-		if err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
-	} else {
+	if !useDefaultImage {
 		file, err := fh.Open()
 		if err != nil {
 			c.Logger().Error(err)
@@ -562,11 +558,17 @@ func postIsu(c echo.Context) error {
 		}
 		defer file.Close()
 
-		image, err = ioutil.ReadAll(file)
+		if err := os.Mkdir(fmt.Sprintf("%s/%s", imageContentsPath, jiaIsuUUID), 0755); err != nil {
+			c.Logger().Error(err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		f, err := os.Create(fmt.Sprintf("%s/%s/icon", imageContentsPath, jiaIsuUUID))
 		if err != nil {
 			c.Logger().Error(err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
+		io.Copy(f, file)
+		f.Close()
 	}
 
 	tx, err := db.Beginx()
