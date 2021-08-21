@@ -377,6 +377,8 @@ func postInitialize(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	rdb.FlushAll(nilCtx)
+
 	rows, err := db.DB.Query(`select isu_condition.jia_isu_uuid, isu_condition.timestamp, isu_condition.condition_true_count from isu_condition JOIN (select jia_isu_uuid, max(timestamp) as max_ts from isu_condition group by jia_isu_uuid) AS m ON m.jia_isu_uuid = isu_condition.jia_isu_uuid AND m.max_ts = isu_condition.timestamp`)
 	for rows.Next() {
 		var uuid string
