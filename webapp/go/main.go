@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"database/sql"
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/go-redis/redis/v8"
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
@@ -45,8 +47,11 @@ const (
 
 var (
 	db                  *sqlx.DB
+	rdb                 *redis.Client
 	sessionStore        sessions.Store
 	mySQLConnectionData *MySQLConnectionEnv
+
+	nilCtx = context.Background()
 
 	jiaJWTSigningKey *ecdsa.PublicKey
 
@@ -254,6 +259,13 @@ func main() {
 	}
 	db.SetMaxOpenConns(10)
 	defer db.Close()
+
+	redisAddr := os.Getenv("REDIS_ADDR")
+	rdb = redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: "",
+		DB:       0,
+	})
 
 	postIsuConditionTargetBaseURL = os.Getenv("POST_ISUCONDITION_TARGET_BASE_URL")
 	if postIsuConditionTargetBaseURL == "" {
@@ -1161,38 +1173,49 @@ func getTrend(c echo.Context) error {
 		characterInfoIsuConditions := []*TrendCondition{}
 		characterWarningIsuConditions := []*TrendCondition{}
 		characterCriticalIsuConditions := []*TrendCondition{}
+
+		isuUUIDs := []string{}
+		isuIdMap := map[string]int{}
+		isuKeys := []string{}
 		for _, isu := range isuList {
-			conditions := []IsuCondition{}
-			err = db.Select(&conditions,
-				"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ? ORDER BY timestamp DESC LIMIT 1",
-				isu.JIAIsuUUID,
-			)
+			isuUUIDs = append(isuUUIDs, isu.JIAIsuUUID)
+			isuIdMap[isu.JIAIsuUUID] = isu.ID
+			isuKeys = append(isuKeys, fmt.Sprintf("latest_condition:%s", isu.JIAIsuUUID))
+		}
+
+		vals, err := rdb.MGet(nilCtx, isuKeys...).Result()
+		if err != nil {
+			// something wrong
+			c.Logger().Errorf("redis mget error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+
+		for i, v := range vals {
+			isuUUID := isuUUIDs[i]
+			str := v.(string)
+
+			sp := strings.Split(str, "|")
+			epochStr := sp[0]
+			epoch, err := strconv.ParseInt(epochStr, 10, 64)
 			if err != nil {
-				c.Logger().Errorf("db error: %v", err)
+				c.Logger().Errorf("epoch convert error: %v", err)
 				return c.NoContent(http.StatusInternalServerError)
 			}
+			trueCount := sp[1]
 
-			if len(conditions) > 0 {
-				isuLastCondition := conditions[0]
-				conditionLevel, err := calculateConditionLevel(isuLastCondition.Condition)
-				if err != nil {
-					c.Logger().Error(err)
-					return c.NoContent(http.StatusInternalServerError)
-				}
-				trendCondition := TrendCondition{
-					ID:        isu.ID,
-					Timestamp: isuLastCondition.Timestamp.Unix(),
-				}
-				switch conditionLevel {
-				case "info":
-					characterInfoIsuConditions = append(characterInfoIsuConditions, &trendCondition)
-				case "warning":
-					characterWarningIsuConditions = append(characterWarningIsuConditions, &trendCondition)
-				case "critical":
-					characterCriticalIsuConditions = append(characterCriticalIsuConditions, &trendCondition)
-				}
+			trendCondition := TrendCondition{
+				ID:        isuIdMap[isuUUID],
+				Timestamp: epoch,
 			}
-
+			switch trueCount {
+			case "0":
+				characterInfoIsuConditions = append(characterInfoIsuConditions, &trendCondition)
+			case "1":
+			case "2":
+				characterWarningIsuConditions = append(characterWarningIsuConditions, &trendCondition)
+			case "3":
+				characterCriticalIsuConditions = append(characterCriticalIsuConditions, &trendCondition)
+			}
 		}
 
 		sort.Slice(characterInfoIsuConditions, func(i, j int) bool {
@@ -1279,8 +1302,11 @@ func postIsuCondition(c echo.Context) error {
 		} else {
 			values.WriteString(",(?, ?, ?, ?, ?, ?)")
 		}
-
 	}
+
+	lastValue := req[len(req)-1]
+	cacheData := fmt.Sprintf("%d|%d", lastValue.Timestamp, strings.Count(lastValue.Condition, "=true"))
+
 	_, err = tx.Exec(
 		"INSERT INTO `isu_condition`"+
 			"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`, `condition_true_count`)"+
@@ -1294,6 +1320,12 @@ func postIsuCondition(c echo.Context) error {
 	err = tx.Commit()
 	if err != nil {
 		c.Logger().Errorf("db error: %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	err = rdb.Set(nilCtx, fmt.Sprintf("latest_condition:%s", jiaIsuUUID), cacheData, 0).Err()
+	if err != nil {
+		c.Logger().Errorf("redis error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
