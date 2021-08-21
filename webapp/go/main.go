@@ -212,7 +212,7 @@ func main() {
 	runtime.SetBlockProfileRate(1)
 	runtime.SetMutexProfileFraction(1)
 	go func() {
-		log.Print(http.ListenAndServe("0.0.0.0:6060", nil))
+		log.Print(http.ListenAndServe("0.0.0.0:6000", nil))
 	}()
 
 	e := echo.New()
