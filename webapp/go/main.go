@@ -266,6 +266,8 @@ func getSession(r *http.Request) (*sessions.Session, error) {
 	return session, nil
 }
 
+var userMap = map[string]struct{}{}
+
 func getUserIDFromSession(c echo.Context) (string, int, error) {
 	session, err := getSession(c.Request())
 	if err != nil {
@@ -277,6 +279,10 @@ func getUserIDFromSession(c echo.Context) (string, int, error) {
 	}
 
 	jiaUserID := _jiaUserID.(string)
+	if _, ok := userMap[jiaUserID]; ok {
+		return jiaUserID, 0, nil
+	}
+
 	var count int
 
 	err = db.Get(&count, "SELECT COUNT(*) FROM `user` WHERE `jia_user_id` = ?",
@@ -288,6 +294,7 @@ func getUserIDFromSession(c echo.Context) (string, int, error) {
 	if count == 0 {
 		return "", http.StatusUnauthorized, fmt.Errorf("not found: user")
 	}
+	userMap[jiaUserID] = struct{}{}
 
 	return jiaUserID, 0, nil
 }
@@ -396,6 +403,7 @@ func postAuthentication(c echo.Context) error {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+	userMap[jiaUserID] = struct{}{}
 
 	session, err := getSession(c.Request())
 	if err != nil {
