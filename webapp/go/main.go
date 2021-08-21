@@ -209,9 +209,9 @@ func init() {
 func main() {
 	e := echo.New()
 	e.Debug = false
-	e.Logger.SetLevel(log.DEBUG)
+	e.Logger.SetLevel(log.INFO)
 
-	e.Use(middleware.Logger())
+	//e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
 	e.POST("/initialize", postInitialize)
