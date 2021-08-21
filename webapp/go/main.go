@@ -81,13 +81,14 @@ type GetIsuListResponse struct {
 }
 
 type IsuCondition struct {
-	ID         int       `db:"id"`
-	JIAIsuUUID string    `db:"jia_isu_uuid"`
-	Timestamp  time.Time `db:"timestamp"`
-	IsSitting  bool      `db:"is_sitting"`
-	Condition  string    `db:"condition"`
-	Message    string    `db:"message"`
-	CreatedAt  time.Time `db:"created_at"`
+	ID                 int       `db:"id"`
+	JIAIsuUUID         string    `db:"jia_isu_uuid"`
+	Timestamp          time.Time `db:"timestamp"`
+	IsSitting          bool      `db:"is_sitting"`
+	Condition          string    `db:"condition"`
+	ConditionTrueCount int       `db:"condition_true_count"`
+	Message            string    `db:"message"`
+	CreatedAt          time.Time `db:"created_at"`
 }
 
 type MySQLConnectionEnv struct {
@@ -1200,7 +1201,7 @@ func postIsuCondition(c echo.Context) error {
 		return c.String(http.StatusNotFound, "not found: isu")
 	}
 
-	args := make([]interface{}, 0, len(req)*5)
+	args := make([]interface{}, 0, len(req)*6)
 
 	values := &strings.Builder{}
 	for i, cond := range req {
@@ -1214,16 +1215,19 @@ func postIsuCondition(c echo.Context) error {
 		args = append(args, cond.IsSitting)
 		args = append(args, cond.Condition)
 		args = append(args, cond.Message)
+		trueCount := strings.Count(cond.Condition, "=true")
+		args = append(args, trueCount)
+
 		if i == 0 {
-			values.WriteString("(?, ?, ?, ?, ?)")
+			values.WriteString("(?, ?, ?, ?, ?, ?)")
 		} else {
-			values.WriteString(",(?, ?, ?, ?, ?)")
+			values.WriteString(",(?, ?, ?, ?, ?, ?)")
 		}
 
 	}
 	_, err = tx.Exec(
 		"INSERT INTO `isu_condition`"+
-			"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`)"+
+			"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`, `condition_true_count`)"+
 			"	VALUES "+values.String(),
 		args...)
 	if err != nil {
