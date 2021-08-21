@@ -52,6 +52,7 @@ var (
 	jiaJWTSigningKey *ecdsa.PublicKey
 
 	postIsuConditionTargetBaseURL string // JIAへのactivate時に登録する，ISUがconditionを送る先のURL
+	defaultIconBin                []byte
 )
 
 type Config struct {
@@ -197,6 +198,11 @@ func (mc *MySQLConnectionEnv) ConnectDB() (*sqlx.DB, error) {
 
 func init() {
 	sessionStore = sessions.NewCookieStore([]byte(getEnv("SESSION_KEY", "isucondition")))
+	var err error
+	defaultIconBin, err = os.ReadFile(defaultIconFilePath)
+	if err != nil {
+		log.Fatalf("failed to load defaultIconFilePath: %v", err)
+	}
 
 	key, err := ioutil.ReadFile(jiaJWTSigningKeyPath)
 	if err != nil {
@@ -700,7 +706,7 @@ func getIsuIcon(c echo.Context) error {
 	jiaIsuUUID := c.Param("jia_isu_uuid")
 
 	var image []byte
-	err = db.Get(&image, "SELECT `image` FROM `isu` WHERE `jia_user_id` = ? AND `jia_isu_uuid` = ?",
+	err = db.Get(&image, "SELECT id FROM `isu` WHERE `jia_user_id` = ? AND `jia_isu_uuid` = ?",
 		jiaUserID, jiaIsuUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -710,8 +716,13 @@ func getIsuIcon(c echo.Context) error {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-
-	return c.Blob(http.StatusOK, "", image)
+	// c.Response().Header().Set("cache-control", "public")
+	icon, err := os.ReadFile(fmt.Sprintf("%s/%s/icon", imageContentsPath, jiaIsuUUID))
+	if err != nil {
+		// default icon
+		return c.Blob(http.StatusOK, "", defaultIconBin)
+	}
+	return c.Blob(http.StatusOK, "", icon)
 }
 
 // GET /api/isu/:jia_isu_uuid/graph
