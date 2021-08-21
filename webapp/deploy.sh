@@ -3,6 +3,7 @@
 set -xe
 cd go && /home/isucon/local/go/bin/go build . && cd -
 rsync -av ./go/ ~/webapp/go/
+rsync -av ./sql/ ~/webapp/sql/
 
 sudo systemctl restart isucondition.go.service
 
