@@ -790,15 +790,22 @@ func getIsuGraph(c echo.Context) error {
 	}
 	defer tx.Rollback()
 
-	var count int
-	err = tx.Get(&count, "SELECT COUNT(*) FROM `isu` WHERE `jia_user_id` = ? AND `jia_isu_uuid` = ?",
-		jiaUserID, jiaIsuUUID)
-	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	if count == 0 {
-		return c.String(http.StatusNotFound, "not found: isu")
+	if isuUserID, ok := isuExistsMap[jiaIsuUUID]; ok {
+		if isuUserID != jiaUserID {
+			return c.String(http.StatusNotFound, "not found: isu")
+		}
+	} else {
+		var count int
+		err = tx.Get(&count, "SELECT COUNT(*) FROM `isu` WHERE `jia_user_id` = ? AND `jia_isu_uuid` = ?",
+			jiaUserID, jiaIsuUUID)
+		if err != nil {
+			c.Logger().Errorf("db error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		if count == 0 {
+			return c.String(http.StatusNotFound, "not found: isu")
+		}
+		isuExistsMap[jiaIsuUUID] = jiaUserID
 	}
 
 	res, err := generateIsuGraphResponse(tx, jiaIsuUUID, date)
@@ -1228,6 +1235,8 @@ func getTrend(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
+var isuExistsMap = map[string]string{}
+
 // POST /api/condition/:jia_isu_uuid
 // ISUからのコンディションを受け取る
 func postIsuCondition(c echo.Context) error {
@@ -1259,14 +1268,17 @@ func postIsuCondition(c echo.Context) error {
 	}
 	defer tx.Rollback()
 
-	var count int
-	err = tx.Get(&count, "SELECT COUNT(*) FROM `isu` WHERE `jia_isu_uuid` = ?", jiaIsuUUID)
-	if err != nil {
-		c.Logger().Errorf("db error: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-	if count == 0 {
-		return c.String(http.StatusNotFound, "not found: isu")
+	if _, ok := isuExistsMap[jiaIsuUUID]; !ok {
+		var jiaUserID string
+		err = tx.Get(&jiaUserID, "SELECT `jia_user_id` FROM `isu` WHERE `jia_isu_uuid` = ? LIMIT 1", jiaIsuUUID)
+		if err != nil {
+			c.Logger().Errorf("db error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		if jiaUserID == "" {
+			return c.String(http.StatusNotFound, "not found: isu")
+		}
+		isuExistsMap[jiaIsuUUID] = jiaUserID
 	}
 
 	args := make([]interface{}, 0, len(req)*6)
