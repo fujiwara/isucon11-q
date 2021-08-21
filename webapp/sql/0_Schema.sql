@@ -16,14 +16,14 @@ CREATE TABLE `isu` (
 ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;
 
 CREATE TABLE `isu_condition` (
-  `id` bigint AUTO_INCREMENT,
+  `id` bigint DEFAULT NULL,
   `jia_isu_uuid` CHAR(36) NOT NULL,
   `timestamp` DATETIME NOT NULL,
   `is_sitting` TINYINT(1) NOT NULL,
   `condition` VARCHAR(255) NOT NULL,
   `message` VARCHAR(255) NOT NULL,
   `created_at` DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY(`id`)
+  PRIMARY KEY(`jia_isu_uuid`, `timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;
 
 CREATE TABLE `user` (
@@ -36,5 +36,4 @@ CREATE TABLE `isu_association_config` (
   `url` VARCHAR(255) NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;
 
-ALTER TABLE `isu_condition` ADD INDEX `jia_isu_uuid_timestamp_idx` (`jia_isu_uuid`, `timestamp`);
 ALTER TABLE `isu` ADD INDEX `isu_character_idx` (`character`);
