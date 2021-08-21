@@ -743,7 +743,7 @@ func getIsuIcon(c echo.Context) error {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	// c.Response().Header().Set("cache-control", "public")
+	c.Response().Header().Set("cache-control", "public")
 	icon, err := os.ReadFile(fmt.Sprintf("%s/%s/icon", imageContentsPath, jiaIsuUUID))
 	if err != nil {
 		// default icon
