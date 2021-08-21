@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -1268,6 +1269,8 @@ func getTrend(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
+var latestTimestampMap = sync.Map{}
+
 // POST /api/condition/:jia_isu_uuid
 // ISUからのコンディションを受け取る
 func postIsuCondition(c echo.Context) error {
@@ -1333,9 +1336,6 @@ func postIsuCondition(c echo.Context) error {
 		}
 	}
 
-	lastValue := req[len(req)-1]
-	cacheData := fmt.Sprintf("%d|%d", lastValue.Timestamp, strings.Count(lastValue.Condition, "=true"))
-
 	_, err = tx.Exec(
 		"INSERT INTO `isu_condition`"+
 			"	(`jia_isu_uuid`, `timestamp`, `is_sitting`, `condition`, `message`, `condition_true_count`)"+
@@ -1346,16 +1346,23 @@ func postIsuCondition(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-	err = rdb.Set(nilCtx, fmt.Sprintf("latest_condition:%s", jiaIsuUUID), cacheData, 0).Err()
-	if err != nil {
-		c.Logger().Errorf("redis error: %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
-
 	err = tx.Commit()
 	if err != nil {
 		c.Logger().Errorf("db error: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	lastValue := req[len(req)-1]
+	val, ok := latestTimestampMap.Load(jiaIsuUUID)
+	if ok && val.(int64) <= lastValue.Timestamp {
+		cacheData := fmt.Sprintf("%d|%d", lastValue.Timestamp, strings.Count(lastValue.Condition, "=true"))
+
+		err = rdb.Set(nilCtx, fmt.Sprintf("latest_condition:%s", jiaIsuUUID), cacheData, 0).Err()
+		if err != nil {
+			c.Logger().Errorf("redis error: %v", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+		latestTimestampMap.Store(jiaIsuUUID, lastValue.Timestamp)
 	}
 
 	return c.NoContent(http.StatusAccepted)
