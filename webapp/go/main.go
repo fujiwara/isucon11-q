@@ -1044,7 +1044,7 @@ func getIsuConditions(c echo.Context) error {
 			c.Logger().Errorf("db error: %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
-		isuNameMap[jiaIsuUUID+jiaUserID] = name
+		isuNameMap[jiaIsuUUID+jiaUserID] = isuName
 	}
 
 	conditionsResponse, err := getIsuConditionsFromDB(db, jiaIsuUUID, endTime, conditionLevels, startTime, conditionLimit, isuName)
