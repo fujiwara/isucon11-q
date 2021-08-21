@@ -558,10 +558,7 @@ func postIsu(c echo.Context) error {
 		}
 		defer file.Close()
 
-		if err := os.Mkdir(fmt.Sprintf("%s/%s", imageContentsPath, jiaIsuUUID), 0755); err != nil {
-			c.Logger().Error(err)
-			return c.NoContent(http.StatusInternalServerError)
-		}
+		os.Mkdir(fmt.Sprintf("%s/%s", imageContentsPath, jiaIsuUUID), 0755) // 既にあるとerrになるのでスルー
 		f, err := os.Create(fmt.Sprintf("%s/%s/icon", imageContentsPath, jiaIsuUUID))
 		if err != nil {
 			c.Logger().Error(err)
