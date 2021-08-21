@@ -1041,7 +1041,7 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 
 	var inQuery string
 	if len(conditionLevels) > 0 {
-		inQuery = "condition_true_count IN (?" + strings.Repeat(",?", len(conditionLevels)-1) + ")"
+		inQuery = "AND condition_true_count IN (?" + strings.Repeat(",?", len(conditionLevels)-1) + ")"
 	}
 	args := make([]interface{}, 0, len(conditionLevels)+3)
 	if startTime.IsZero() {
@@ -1056,7 +1056,7 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 	if startTime.IsZero() {
 		err = db.Select(&conditions,
 			"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?"+
-				"	AND `timestamp` < ?"+inQuery+
+				"	AND `timestamp` < ? "+inQuery+
 				"	ORDER BY `timestamp` DESC LIMIT ?",
 			args...,
 		)
@@ -1064,7 +1064,7 @@ func getIsuConditionsFromDB(db *sqlx.DB, jiaIsuUUID string, endTime time.Time, c
 		err = db.Select(&conditions,
 			"SELECT * FROM `isu_condition` WHERE `jia_isu_uuid` = ?"+
 				"	AND `timestamp` < ?"+
-				"	AND ? <= `timestamp`"+inQuery+
+				"	AND ? <= `timestamp` "+inQuery+
 				"	ORDER BY `timestamp` DESC LIMIT ?",
 			args...,
 		)
