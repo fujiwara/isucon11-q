@@ -322,6 +322,25 @@ func postInitialize(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	// condition_true_count
+	_, err = db.Exec("ALTER TABLE `isu_condition` ADD COLUMN `condition_true_count` TINYINT(1) NOT NULL DEFAULT 0")
+	if err != nil {
+		c.Logger().Errorf("db error : %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	_, err = db.Exec("ALTER TABLE `isu_condition` ADD INDEX `jia_isu_uuid_condition_true_count_timestamp_idx` (`jia_isu_uuid`, `condition_true_count`, `timestamp`)")
+	if err != nil {
+		c.Logger().Errorf("db error : %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	_, err = db.Exec("UPDATE isu_condition SET condition_true_count = ROUND((LENGTH(`condition`) - LENGTH(REPLACE(`condition`, 'true', ''))) / 4)")
+	if err != nil {
+		c.Logger().Errorf("db error : %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
 	_, err = db.Exec(
 		"INSERT INTO `isu_association_config` (`name`, `url`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `url` = VALUES(`url`)",
 		"jia_service_url",
