@@ -1213,7 +1213,10 @@ func getTrend(c echo.Context) error {
 
 		for i, v := range vals {
 			isuUUID := isuUUIDs[i]
-			str := v.(string)
+			str, ok := v.(string)
+			if !ok {
+				continue
+			}
 
 			sp := strings.Split(str, "|")
 			epochStr := sp[0]
