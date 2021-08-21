@@ -1145,13 +1145,15 @@ func getTrend(c echo.Context) error {
 		characterWarningIsuConditions := []*TrendCondition{}
 		characterCriticalIsuConditions := []*TrendCondition{}
 
-		isuIds := []string{}
+		isuUUIDs := []string{}
+		isuIdMap := map[string]int{}
 		for _, isu := range isuList {
-			isuIds = append(isuIds, isu.JIAIsuUUID)
+			isuUUIDs = append(isuUUIDs, isu.JIAIsuUUID)
+			isuIdMap[isu.JIAIsuUUID] = isu.ID
 		}
 
 		sql := "SELECT isu_condition.* FROM `isu_condition` JOIN (SELECT jia_isu_uuid, MAX(timestamp) AS recent_timestamp FROM `isu_condition` WHERE jia_isu_uuid IN (?) GROUP BY jia_isu_uuid) AS m ON isu_condition.jia_isu_uuid = m.jia_isu_uuid AND timestamp = m.recent_timestamp"
-		sql, params, err := sqlx.In(sql, isuIds)
+		sql, params, err := sqlx.In(sql, isuUUIDs)
 		if err != nil {
 			c.Logger().Errorf("db sqlx.In error: %v", err)
 			return c.NoContent(http.StatusInternalServerError)
@@ -1170,7 +1172,7 @@ func getTrend(c echo.Context) error {
 				return c.NoContent(http.StatusInternalServerError)
 			}
 			trendCondition := TrendCondition{
-				ID:        isuLastCondition.ID,
+				ID:        isuIdMap[isuLastCondition.JIAIsuUUID],
 				Timestamp: isuLastCondition.Timestamp.Unix(),
 			}
 			switch conditionLevel {
