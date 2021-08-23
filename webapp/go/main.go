@@ -10,8 +10,10 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/exec"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -215,6 +217,12 @@ func init() {
 }
 
 func main() {
+	runtime.SetBlockProfileRate(1)
+	runtime.SetMutexProfileFraction(1)
+	go func() {
+		log.Print(http.ListenAndServe("0.0.0.0:6000", nil))
+	}()
+
 	e := echo.New()
 	e.Debug = false
 	e.Logger.SetLevel(log.INFO)
